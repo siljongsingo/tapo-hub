@@ -559,7 +559,8 @@ async function loadDevices() {
       id:d.deviceId, alias:decAlias(d.alias),
       model:d.deviceModel, type:d.deviceType,
       icon:devIcon(d.deviceType,d.deviceModel),
-      online:d.status===1, state:false,
+      online: true, // passthrough 결과로 판단
+      state:false,
       serverUrl:d.appServerUrl,
       mac:d.deviceMac, power:0, energy:0,
     }));
@@ -578,13 +579,23 @@ async function loadStates() {
   await Promise.allSettled(plugs.map(async d=>{
     try {
       const info = await passthru(d.serverUrl, d.id, 'get_device_info');
-      d.state = info.device_info?.basic_info?.device_on ?? false;
+      console.log('✅', d.alias, JSON.stringify(info).slice(0,200));
+      // 다양한 펌웨어 응답 구조 대응
+      const basic = info.device_info?.basic_info || info.info || info;
+      d.state  = basic.device_on ?? basic.deviceOn ?? false;
+      d.online = true;
       if(d.model.includes('P110')){
-        const em = await passthru(d.serverUrl, d.id, 'get_energy_usage');
-        d.power  = em.energy_usage?.current_power ?? 0;
-        d.energy = em.energy_usage?.today_energy  ?? 0;
+        try {
+          const em = await passthru(d.serverUrl, d.id, 'get_energy_usage');
+          const eu = em.energy_usage || em;
+          d.power  = eu.current_power ?? eu.currentPower ?? 0;
+          d.energy = eu.today_energy  ?? eu.todayEnergy  ?? 0;
+        } catch(e){ console.warn('⚡ energy err', d.alias, e.message); }
       }
-    } catch{}
+    } catch(e){
+      console.warn('❌', d.alias, e.message);
+      d.online = false;
+    }
   }));
   renderDevices(); updateSummary();
   if(IS_ADMIN) renderManageList();
