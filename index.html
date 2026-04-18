@@ -502,7 +502,7 @@ function toggleHide(id){
 function visible(){ return IS_ADMIN ? devices : devices.filter(d=>!isHidden(d.id)); }
 
 // ── Cloud API ──────────────────────────────────────
-const PROXY = 'http://49.50.139.246:5000/api/proxy';
+const PROXY = 'https://descriptions-mit-vitamin-effects.trycloudflare.com/api/proxy';
 
 async function apiPost(url, body) {
   // 모든 요청을 NCP 프록시 경유 (CORS 문제 해결)
