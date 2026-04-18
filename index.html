@@ -382,7 +382,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 <script>
 // ── State ──────────────────────────────────────────
 const CLOUD = 'https://wap.tplinkcloud.com';
-const PROXY = 'http://49.50.139.246:5000/api/proxy';
 const UUID  = (() => { let v=localStorage.getItem('_uuid'); if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('_uuid',v);} return v; })();
 
 let TOK   = localStorage.getItem('_tok')  || '';
@@ -503,21 +502,14 @@ function toggleHide(id){
 function visible(){ return IS_ADMIN ? devices : devices.filter(d=>!isHidden(d.id)); }
 
 // ── Cloud API ──────────────────────────────────────
+const PROXY = 'http://49.50.139.246:5000/api/proxy';
+
 async function apiPost(url, body) {
-  // aps1 지역 서버는 CORS 문제 → NCP 프록시 경유
-  const useProxy = url.includes('aps1-') || url.includes('ap-southeast');
-  let r;
-  if (useProxy) {
-    r = await fetch(PROXY, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({url, body})
-    });
-  } else {
-    r = await fetch(url, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
-  }
+  // 모든 요청을 NCP 프록시 경유 (CORS 문제 해결)
+  const r = await fetch(PROXY, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({url, body})
+  });
   const d = await r.json();
   if(d.error_code!==0) throw new Error(`API ${d.error_code}`);
   return d.result;
