@@ -677,7 +677,7 @@ function openSheet(id) {
       <div class="e-row"><span class="e-k">현재 전력</span><span class="e-v">${((d.power||0)/1000).toFixed(2)} W</span></div>
       <div class="e-row"><span class="e-k">오늘 사용</span><span class="e-v">${((d.energy||0)/1000).toFixed(3)} kWh</span></div>
     </div>`:''}
-    <div class="sh-row"><span class="lbl">상태</span><span style="color:${!d.online?'var(--red)':d.state?'var(--teal)':'var(--muted)';font-weight:500}">${!d.online?'오프라인':d.state?'켜짐':'꺼짐'}</span></div>
+    <div class="sh-row"><span class="lbl">상태</span><span style="color:${!d.online?'var(--red)':d.state?'var(--teal)':'var(--muted)'};font-weight:500">${!d.online?'오프라인':d.state?'켜짐':'꺼짐'}</span></div>
     <div class="sh-row"><span class="lbl">MAC</span><span style="font-size:11px">${d.mac}</span></div>
     ${IS_ADMIN?`<div class="sh-row"><span class="lbl">공개 여부</span>
       <label class="tog"><input type="checkbox" ${!isHidden(d.id)?'checked':''} onchange="toggleHide('${d.id}');renderDevices();updateSummary()"><span class="tsl"></span></label>
