@@ -516,7 +516,9 @@ async function apiDeviceList() {
   return await apiPost(`${CLOUD}?token=${TOK}`, {method:'getDeviceList',params:{}});
 }
 async function passthru(serverUrl, devId, method, params={}) {
-  const res = await apiPost(`${serverUrl}?token=${TOK}`, {
+  // CORS 문제로 지역 서버 대신 메인 서버 사용
+  const url = `${CLOUD}?token=${TOK}`;
+  const res = await apiPost(url, {
     method:'passthrough', params:{deviceId:devId, requestData:JSON.stringify({method,params})}
   });
   const inner = JSON.parse(res.responseData);
