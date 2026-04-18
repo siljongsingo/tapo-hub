@@ -319,6 +319,33 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
         </div>
       </div>
 
+      <span class="s-hdr">🏠 로컬 모드 (교회 Wi-Fi 내 사용)</span>
+      <div class="s-group">
+        <div class="s-row">
+          <div>
+            <div class="s-lbl">로컬 서버 주소</div>
+            <div class="s-hint">교회 Wi-Fi 내 PC Flask 서버 주소</div>
+          </div>
+          <div class="s-val">
+            <label class="tog">
+              <input type="checkbox" id="local-mode-toggle" onchange="toggleLocalMode(this.checked)">
+              <span class="tsl"></span>
+            </label>
+          </div>
+        </div>
+        <div class="s-row" id="local-url-row" style="display:none">
+          <div><div class="s-lbl">서버 IP:포트</div><div class="s-hint">예: http://192.168.0.10:5000</div></div>
+          <div class="s-val">
+            <input class="inp" type="text" id="local-url" placeholder="http://192.168.x.x:5000" style="width:180px" value="">
+            <button class="btn" onclick="saveLocalUrl()">저장</button>
+          </div>
+        </div>
+        <div class="s-row" id="local-mode-info" style="display:none">
+          <div><div class="s-lbl" id="local-mode-status">로컬 모드 꺼짐</div><div class="s-hint">교회 Wi-Fi 연결 후 사용하세요</div></div>
+          <div class="s-val"><button class="btn" onclick="testLocalServer()">연결 테스트</button></div>
+        </div>
+      </div>
+
       <!-- 관리자 잠금 -->
       <div id="admin-locked">
         <span class="s-hdr">🔒 관리자 — 장치 숨김 설정</span>
@@ -382,7 +409,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 <script>
 // ── State ──────────────────────────────────────────
 const CLOUD = 'https://wap.tplinkcloud.com';
+const PROXY = 'https://descriptions-mit-vitamin-effects.trycloudflare.com/api/proxy';
 const UUID  = (() => { let v=localStorage.getItem('_uuid'); if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('_uuid',v);} return v; })();
+
+let LOCAL_MODE = localStorage.getItem('_local_mode') === 'true';
+let LOCAL_URL  = localStorage.getItem('_local_url') || '';
 
 let TOK   = localStorage.getItem('_tok')  || '';
 let EMAIL = localStorage.getItem('_em')   || '';
@@ -502,11 +533,13 @@ function toggleHide(id){
 function visible(){ return IS_ADMIN ? devices : devices.filter(d=>!isHidden(d.id)); }
 
 // ── Cloud API ──────────────────────────────────────
-const PROXY = 'https://descriptions-mit-vitamin-effects.trycloudflare.com/api/proxy';
-
 async function apiPost(url, body) {
-  // 모든 요청을 NCP 프록시 경유 (CORS 문제 해결)
-  const r = await fetch(PROXY, {
+  // 로컬 모드: 로컬 서버 프록시 경유
+  // 일반 모드: NCP 프록시 경유 (CORS 해결)
+  const proxyUrl = LOCAL_MODE && LOCAL_URL
+    ? `${LOCAL_URL}/api/proxy`
+    : PROXY;
+  const r = await fetch(proxyUrl, {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({url, body})
   });
@@ -757,6 +790,14 @@ function switchTab(name, btn) {
     document.getElementById('s-conn').innerHTML = TOK
       ?'<span style="color:var(--teal);font-weight:600">연결됨</span>'
       :'<span style="color:var(--red)">미연결</span>';
+    // 로컬 모드 UI 복원
+    const toggle = document.getElementById('local-mode-toggle');
+    if(toggle) toggle.checked = LOCAL_MODE;
+    document.getElementById('local-url-row').style.display   = LOCAL_MODE ? 'flex' : 'none';
+    document.getElementById('local-mode-info').style.display = LOCAL_MODE ? 'flex' : 'none';
+    const urlInp = document.getElementById('local-url');
+    if(urlInp) urlInp.value = LOCAL_URL;
+    updateLocalModeStatus();
     if(IS_ADMIN){
       document.getElementById('admin-locked').style.display='none';
       document.getElementById('admin-section').style.display='block';
@@ -788,6 +829,49 @@ function restartSync(){
 function doLogout(){
   if(!confirm('로그아웃하면 저장된 계정 정보와 숨김 설정이 모두 삭제됩니다.\n계속하시겠습니까?')) return;
   localStorage.clear(); location.reload();
+}
+
+// ── Local Mode ─────────────────────────────────────
+function toggleLocalMode(on) {
+  LOCAL_MODE = on;
+  localStorage.setItem('_local_mode', on);
+  document.getElementById('local-url-row').style.display  = on ? 'flex' : 'none';
+  document.getElementById('local-mode-info').style.display = on ? 'flex' : 'none';
+  updateLocalModeStatus();
+  if(on) toast('🏠 로컬 모드 켜짐 — 서버 주소를 입력하세요');
+  else   toast('☁️ 클라우드 모드로 전환');
+}
+
+function saveLocalUrl() {
+  const url = document.getElementById('local-url').value.trim().replace(/\/$/, '');
+  if(!url) { toast('서버 주소를 입력하세요'); return; }
+  LOCAL_URL = url;
+  localStorage.setItem('_local_url', url);
+  updateLocalModeStatus();
+  toast('✅ 로컬 서버 주소 저장됨');
+}
+
+async function testLocalServer() {
+  if(!LOCAL_URL) { toast('서버 주소를 먼저 입력하세요'); return; }
+  try {
+    const r = await fetch(`${LOCAL_URL}/api/health`, {signal: AbortSignal.timeout(3000)});
+    const d = await r.json();
+    if(d.status === 'ok') toast('✅ 로컬 서버 연결 성공!');
+    else toast('⚠️ 서버 응답 이상');
+  } catch(e) {
+    toast('❌ 연결 실패 — 같은 Wi-Fi인지 확인하세요');
+  }
+}
+
+function updateLocalModeStatus() {
+  const el = document.getElementById('local-mode-status');
+  if(!el) return;
+  if(LOCAL_MODE && LOCAL_URL)
+    el.textContent = `🏠 로컬 모드: ${LOCAL_URL}`;
+  else if(LOCAL_MODE)
+    el.textContent = '🏠 로컬 모드 켜짐 (주소 미입력)';
+  else
+    el.textContent = '☁️ 클라우드 모드';
 }
 
 // ── Init ───────────────────────────────────────────
